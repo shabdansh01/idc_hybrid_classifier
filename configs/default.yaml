@@ -1,0 +1,21 @@
+experiment_name: "hybrid_idc_default"
+
+dataset:
+  root: "./data/processed"
+  batch_size: 32
+  num_workers: 4
+  img_size: 50
+
+model:
+  cnn_backbone: "convnext_tiny"
+  vit_backbone: "swin_tiny"
+  fusion_dim: 512
+  hidden_dim: 512
+
+training:
+  epochs: 30
+  lr: 1e-4
+  optimizer: "adamw"
+  weight_decay: 0.01
+  scheduler: "cosine"
+  warmup_epochs: 3
