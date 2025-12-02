@@ -1,21 +1,74 @@
-experiment_name: "hybrid_idc_default"
-
-dataset:
-  root: "./data/processed"
-  batch_size: 32
-  num_workers: 4
-  img_size: 50
-
 model:
-  cnn_backbone: "convnext_tiny"
-  vit_backbone: "swin_tiny"
-  fusion_dim: 512
-  hidden_dim: 512
+  type: "hybrid"
+  cnn:
+    backbone: "convnext_tiny"
+    pretrained: true
+    feature_dim: 768
+    freeze_stages: 2
+  vit:
+    backbone: "swin_tiny_patch4_window7_224"
+    pretrained: true
+    img_size: 56
+    feature_dim: 768
+    freeze_layers: 8
+  fusion:
+    project_dim: 512
+    use_alignment: true
+  head:
+    hidden_dims: [512, 256]
+    dropout: 0.4
+    use_layernorm: true
+
+data:
+  input_size: 50
+  target_size: 56
+  num_classes: 1
+  stain_norm:
+    method: null  # or "macenko" 
+  augmentation:
+    train:
+      rotation: 360
+      horizontal_flip: true
+      vertical_flip: true
+      color_jitter: 0.2
+      gaussian_noise: 0.01
+      elastic_transform: true
 
 training:
-  epochs: 30
-  lr: 1e-4
-  optimizer: "adamw"
-  weight_decay: 0.01
-  scheduler: "cosine"
-  warmup_epochs: 3
+  batch_size: 64
+  num_epochs: 100
+  num_workers: 8
+  pin_memory: true
+  optimizer:
+    type: "adamw"
+    lr: 0.0001
+    weight_decay: 0.05
+    betas: [0.9, 0.999]
+  scheduler:
+    type: "cosine"
+    warmup_epochs: 5
+    min_lr: 0.000001
+  loss:
+    type: "bce_logits"
+    pos_weight: 1.0
+  early_stopping:
+    patience: 15
+    metric: "val_auc"
+    mode: "max"
+  mixed_precision: true
+  gradient_clip: 1.0
+
+paths:
+  data_dir: "/path/to/your/IDC_dataset"  # UPDATE THIS
+  output_dir: "outputs"
+  checkpoint_dir: "outputs/checkpoints"
+  log_dir: "outputs/logs"
+
+logging:
+  use_wandb: false
+  use_tensorboard: true
+  save_freq: 5
+  log_freq: 10
+
+seed: 42
+deterministic: true

@@ -1,12 +1,12 @@
-class SwinTransformerBackbone(nn.Module):
-    """Swin Transformer for global feature extraction."""
+class DeiTBackbone(nn.Module):
+    """DeiT (Data-efficient Image Transformer) backbone."""
     
     def __init__(self,
-                 model_name='swin_tiny_patch4_window7_224',
+                 model_name='deit_small_patch16_224',
                  pretrained=True,
                  img_size=56,
                  freeze_layers=8,
-                 feature_dim=768):
+                 feature_dim=384):
         super().__init__()
         
         self.backbone = timm.create_model(
@@ -22,17 +22,13 @@ class SwinTransformerBackbone(nn.Module):
             self._freeze_layers(freeze_layers)
     
     def _freeze_layers(self, num_layers):
-        """Freeze first N transformer blocks."""
-        # Freeze patch embed
+        """Freeze first N blocks."""
         for param in self.backbone.patch_embed.parameters():
             param.requires_grad = False
         
-        # Freeze layers
-        for i, layer in enumerate(self.backbone.layers):
-            if i < num_layers:
-                for param in layer.parameters():
-                    param.requires_grad = False
+        for i in range(min(num_layers, len(self.backbone.blocks))):
+            for param in self.backbone.blocks[i].parameters():
+                param.requires_grad = False
     
     def forward(self, x):
         return self.backbone(x)
-

@@ -1,17 +1,29 @@
-import torch.nn as nn
-
 class ClassificationHead(nn.Module):
-    def __init__(self, in_dim, hidden_dim=512):
+    """MLP classification head."""
+    
+    def __init__(self,
+                 input_dim: int,
+                 hidden_dims: list = [512, 256],
+                 num_classes: int = 1,
+                 dropout: float = 0.4,
+                 use_layernorm: bool = True):
         super().__init__()
-        self.net = nn.Sequential(
-            nn.Linear(in_dim, hidden_dim),
-            nn.GELU(),
-            nn.Dropout(0.3),
-            nn.Linear(hidden_dim, hidden_dim//2),
-            nn.GELU(),
-            nn.Dropout(0.3),
-            nn.Linear(hidden_dim//2, 1)
-        )
-
+        
+        layers = []
+        in_dim = input_dim
+        
+        for hidden_dim in hidden_dims:
+            layers.append(nn.Linear(in_dim, hidden_dim))
+            if use_layernorm:
+                layers.append(nn.LayerNorm(hidden_dim))
+            layers.append(nn.GELU())
+            layers.append(nn.Dropout(dropout))
+            in_dim = hidden_dim
+        
+        # Output layer
+        layers.append(nn.Linear(in_dim, num_classes))
+        
+        self.head = nn.Sequential(*layers)
+    
     def forward(self, x):
-        return self.net(x)
+        return self.head(x)
