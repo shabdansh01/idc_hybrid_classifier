@@ -6,69 +6,93 @@ from torchvision.models import (
     ConvNeXt_Small_Weights,
     ConvNeXt_Base_Weights,
 )
+from huggingface_hub import snapshot_download
+import safetensors.torch
+import os
 
 class ConvNeXtBackbone(nn.Module):
     """
     ConvNeXt backbone that returns ONLY local feature maps.
-    Supports loading fine-tuned weights.
+    Supports loading fine-tuned weights from local checkpoint or Hugging Face repo.
     """
 
-    def __init__(self, version='tiny', pretrained=True, fine_tune=True, checkpoint_path=None):
+    def __init__(self, model_name='convnext_tiny', pretrained=True, freeze_stages=0, feature_dim=768, hf_repo=None):
         super().__init__()
 
-        version = version.lower()
+        model_name = model_name.lower()
 
         # ------------------------------
         # Load model with ImageNet weights
         # ------------------------------
-        if version == 'tiny':
+        if model_name == 'convnext_tiny':
             weights = ConvNeXt_Tiny_Weights.IMAGENET1K_V1 if pretrained else None
             self.model = models.convnext_tiny(weights=weights)
             self.out_channels = 768
-        elif version == 'small':
+        elif model_name == 'convnext_small':
             weights = ConvNeXt_Small_Weights.IMAGENET1K_V1 if pretrained else None
             self.model = models.convnext_small(weights=weights)
             self.out_channels = 768
-        elif version == 'base':
+        elif model_name == 'convnext_base':
             weights = ConvNeXt_Base_Weights.IMAGENET1K_V1 if pretrained else None
             self.model = models.convnext_base(weights=weights)
             self.out_channels = 1024
         else:
-            raise ValueError(f"Unsupported ConvNeXt version: {version}")
+            raise ValueError(f"Unsupported ConvNeXt model_name: {model_name}")
+
+        self.feature_dim = feature_dim  # For compatibility
+        assert self.out_channels == feature_dim, f"feature_dim {feature_dim} mismatches out_channels {self.out_channels}"
 
         # Remove classifier (we want local features)
         self.model.classifier = nn.Identity()
 
         # ------------------------------
-        # Load finetuned checkpoint
+        # Load finetuned checkpoint from HF
         # ------------------------------
-        if checkpoint_path is not None:
-            print(f"Loading finetuned weights from: {checkpoint_path}")
+        state = None
+        if hf_repo is not None:
+            print(f"Downloading fine-tuned weights from Hugging Face repo: {hf_repo}")
+            local_dir = snapshot_download(repo_id=hf_repo, local_dir_use_symlinks=False)
+            safetensors_path = os.path.join(local_dir, "model.safetensors")
+            if os.path.exists(safetensors_path):
+                state = safetensors.torch.load_file(safetensors_path)
+                print(f"Loaded state dict from {safetensors_path}")
+            else:
+                # Fallback to pytorch_model.bin
+                bin_path = os.path.join(local_dir, "pytorch_model.bin")
+                if os.path.exists(bin_path):
+                    state = torch.load(bin_path, map_location="cpu")
+                    print(f"Loaded state dict from {bin_path}")
+                else:
+                    raise FileNotFoundError(f"No model file found in {local_dir}")
 
-            state = torch.load(checkpoint_path, map_location="cpu")
-
-            # Some checkpoints store weights under a key "model_state_dict"
+        if state is not None:
+            # Handle nested keys
             if "state_dict" in state:
                 state = state["state_dict"]
             if "model" in state:
                 state = state["model"]
 
-            # Remove classifier keys if they exist
+            # Filter out classifier/head keys
             filtered_state = {
                 k: v for k, v in state.items()
-                if "classifier" not in k
+                if not any(exclude in k for exclude in ["classifier", "head", "fc", "logits"])
             }
 
             missing, unexpected = self.model.load_state_dict(filtered_state, strict=False)
             print("Missing keys:", missing)
             print("Unexpected keys:", unexpected)
+            if missing:
+                print("Note: Missing keys likely from classifier/head; expected for backbone.")
 
         # ------------------------------
-        # Freeze if needed
+        # Freeze stages if specified
         # ------------------------------
-        if not fine_tune:
-            for param in self.model.parameters():
-                param.requires_grad = False
+        if freeze_stages > 0:
+            # ConvNeXt features has stages: 0-7 (downsample layers)
+            for i in range(freeze_stages):
+                for param in self.model.features[i].parameters():
+                    param.requires_grad = False
+            print(f"Froze first {freeze_stages} stages.")
 
     def forward(self, x):
         return self.model.features(x)
@@ -76,52 +100,13 @@ class ConvNeXtBackbone(nn.Module):
     def get_output_dim(self):
         return self.out_channels
 
-
-
-if __name__ == "__main__":
-    import torchvision.transforms as T
-    from PIL import Image
-
-    # ---------------------------
-    # 1. Device
-    # ---------------------------
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print("Using device:", device)
-
-    # ---------------------------
-    # 2. Load an image
-    # ---------------------------
-    img_path = "breast_images/datasets/paultimothymooney/breast-histopathology-images/versions/1/8867/1/8867_idx5_x451_y901_class1.png"   # <-- change to your image path
-    img = Image.open(img_path).convert("RGB")
-
-    print("Image size: ",img.size)
-    # ---------------------------
-    # 3. ConvNeXt preprocessing
-    # ---------------------------
-    preprocess = T.Compose([
-        T.Resize((224, 224)),
-        T.ToTensor(),
-        T.Normalize(
-            mean=[0.485, 0.456, 0.406],
-            std=[0.229, 0.224, 0.225],
-        )
-    ])
-
-    x = preprocess(img).unsqueeze(0).to(device)   # shape: (1,3,224,224)
-
-    # ---------------------------
-    # 4. Initialize backbone
-    # ---------------------------
-    backbone = ConvNeXtBackbone(
-        version='tiny',     # tiny/small/base
-        pretrained=True,
-        fine_tune=False
-    ).to(device)
-
-    # ---------------------------
-    # 5. Forward pass
-    # ---------------------------
-    features = backbone(x)
-
-    print("Local feature map shape:", features.shape)
-    print("Output channels:", backbone.get_output_dim())
+def create_convnext(cnn_config):
+    """Factory function to create ConvNeXt backbone from config."""
+    hf_repo = "FatimaK6/breast-cancer-convnext-tiny"  # Hardcoded for now; make configurable
+    return ConvNeXtBackbone(
+        model_name=cnn_config['backbone'],
+        pretrained=cnn_config['pretrained'],
+        freeze_stages=cnn_config['freeze_stages'],
+        feature_dim=cnn_config['feature_dim'],
+        hf_repo=hf_repo
+    )
