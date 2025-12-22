@@ -36,3 +36,12 @@ class SwinTransformerBackbone(nn.Module):
     def forward(self, x):
         return self.backbone(x)
 
+def create_swin(vit_config):
+    """Factory function to create Swin backbone from config."""
+    return SwinBackbone(
+        model_name=vit_config['backbone'],
+        pretrained=vit_config['pretrained'],
+        img_size = config['img_size'],
+        freeze_layers=vit_config['freeze_layers'],
+        feature_dim=vit_config['feature_dim'],
+    )

@@ -5,7 +5,7 @@ from models.hybrid.hybrid_model import HybridNet
 def create_backbones(config,cnn_name, vit_name):
     # cnn = create_convnext()
     cnn = create_convnext(config['model']['cnn'])
-    vit = create_swin()
+    vit = create_swin(config['model']['vit'])
     return cnn, vit
 
 def build_hybrid(cnn_name, vit_name, fusion_dim=512, hidden_dim=512):
