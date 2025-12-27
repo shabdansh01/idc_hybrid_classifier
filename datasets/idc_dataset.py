@@ -3,6 +3,7 @@ from torch.utils.data import Dataset
 from pathlib import Path
 from PIL import Image
 import numpy as np
+import cv2 
 
 class IDCDataset(Dataset):
     """Dataset for IDC breast cancer patches."""

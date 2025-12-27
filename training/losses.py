@@ -1,3 +1,6 @@
+import torch
+import torch.nn as nn
+
 class FocalLoss(nn.Module):
     """Focal Loss for addressing class imbalance."""
     

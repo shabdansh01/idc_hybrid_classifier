@@ -110,3 +110,61 @@ def create_convnext(cnn_config):
         feature_dim=cnn_config['feature_dim'],
         hf_repo=hf_repo
     )
+if __name__ == "__main__":
+    import torch
+
+    # ------------------------------
+    # Dummy config (matches your factory)
+    # ------------------------------
+    cnn_config = {
+        "backbone": "convnext_tiny",
+        "pretrained": True,
+        "freeze_stages": 2,
+        "feature_dim": 768,
+    }
+
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    print(f"Using device: {device}")
+
+    # ------------------------------
+    # Create model
+    # ------------------------------
+    model = create_convnext(cnn_config)
+    model.to(device)
+    model.eval()
+
+    print("\nModel created successfully")
+    print(f"Output feature dim: {model.get_output_dim()}")
+
+    # ------------------------------
+    # Check frozen parameters
+    # ------------------------------
+    frozen = sum(not p.requires_grad for p in model.parameters())
+    trainable = sum(p.requires_grad for p in model.parameters())
+
+    print(f"Frozen params: {frozen}")
+    print(f"Trainable params: {trainable}")
+
+    # ------------------------------
+    # Dummy input
+    # ------------------------------
+    x = torch.randn(1, 3, 224, 224).to(device)
+
+    # ------------------------------
+    # Forward pass
+    # ------------------------------
+    with torch.no_grad():
+        features = model(x)
+
+    print("\nForward pass successful")
+    print(f"Input shape: {x.shape}")
+    print(f"Output feature map shape: {features.shape}")
+
+    # ------------------------------
+    # Expected output for ConvNeXt-Tiny
+    # ------------------------------
+    # Typically: [B, 768, 7, 7] for 224x224 input
+    assert features.shape[1] == cnn_config["feature_dim"], \
+        "Feature dimension mismatch!"
+
+    print("\n✅ ConvNeXt backbone loaded weights and ran correctly")

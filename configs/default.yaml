@@ -60,7 +60,7 @@ training:
   gradient_clip: 1.0
 
 paths:
-  data_dir: "/path/to/your/IDC_dataset"  # UPDATE THIS
+  data_dir: "/home/vidit/vidit/idc_hybrid_classifier/data_kaggle"  # UPDATE THIS
   output_dir: "outputs"
   checkpoint_dir: "outputs/checkpoints"
   log_dir: "outputs/logs"

@@ -1,3 +1,7 @@
+import timm
+import torch.nn as nn
+
+
 class EfficientNetV2Backbone(nn.Module):
     """EfficientNetV2 backbone for local feature extraction."""
     

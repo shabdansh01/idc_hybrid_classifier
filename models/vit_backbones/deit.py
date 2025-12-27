@@ -1,3 +1,7 @@
+import timm 
+import torch.nn as nn
+
+
 class DeiTBackbone(nn.Module):
     """DeiT (Data-efficient Image Transformer) backbone."""
     

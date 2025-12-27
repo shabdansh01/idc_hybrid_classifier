@@ -1,6 +1,23 @@
-import yaml
+# Standard library
 import argparse
+import yaml
 from pathlib import Path
+
+# Core ML
+import torch
+import torch.nn as nn
+import numpy as np
+
+# Project-specific imports (you must have these modules)
+from datasets.idc_dataset import IDCDataset
+from datasets.transforms import IDCTransforms
+from models.hybrid.hybrid_model import HybridIDCClassifier
+from training.engine import TrainingEngine
+from training.losses import FocalLoss
+from utils.stain_normalization import MacenkoStainNormalizer
+
+
+DEFAULT_CONFIG = "configs/default.yaml"
 
 def parse_args():
     parser = argparse.ArgumentParser(description='IDC Hybrid Classifier')
@@ -50,7 +67,8 @@ def train(config):
     
     # Create stain normalizer
     print("\n[1/6] Preparing stain normalization...")
-    stain_normalizer = MacenkoStainNormalizer()
+    # stain_normalizer = MacenkoStainNormalizer()
+    stain_normalizer = None
     # Fit on a reference image (you should provide this)
     # stain_normalizer.fit(reference_image)
     
@@ -58,7 +76,7 @@ def train(config):
     print("[2/6] Loading datasets...")
     train_transforms = IDCTransforms.get_train_transforms(config['data']['augmentation']['train'])
     val_transforms = IDCTransforms.get_val_transforms()
-    
+    print(config['paths']['data_dir'])
     train_dataset = IDCDataset(
         data_dir=Path(config['paths']['data_dir']) / 'train',
         split='train',

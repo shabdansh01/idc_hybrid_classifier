@@ -1,3 +1,19 @@
+import torch
+import torch.nn as nn
+
+# CNN backbones
+from models.cnn_backbones.convnext import ConvNeXtBackbone
+from models.cnn_backbones.efficientnetv2 import EfficientNetV2Backbone
+
+# ViT backbones
+from models.vit_backbones.swin import SwinTransformerBackbone
+from models.vit_backbones.deit import DeiTBackbone
+
+# Fusion & classification
+from models.hybrid.fusion_block import FusionBlock
+from models.hybrid.classification_head import ClassificationHead
+
+
 class HybridIDCClassifier(nn.Module):
     """Hybrid CNN-ViT model for IDC classification."""
     
@@ -62,10 +78,14 @@ class HybridIDCClassifier(nn.Module):
     def forward(self, x):
         """Forward pass through hybrid model."""
         # Extract features from both streams
-        cnn_features = self.cnn_backbone(x)
-        vit_features = self.vit_backbone(x)
-        
-        # Fuse features
+        cnn_features = self.cnn_backbone(x)   # [B, 768, H, W] or [B, 768, 1, 1]
+
+        # 🔥 FIX: global pooling
+        if cnn_features.dim() == 4:
+            cnn_features = cnn_features.mean(dim=(2, 3))  # -> [B, 768]
+
+        vit_features = self.vit_backbone(x)   # [B, 768]
+
         fused_features = self.fusion(cnn_features, vit_features)
         
         # Classify

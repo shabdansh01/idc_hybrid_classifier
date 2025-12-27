@@ -1,3 +1,5 @@
+import torch.nn as nn
+
 class ClassificationHead(nn.Module):
     """MLP classification head."""
     
