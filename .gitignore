@@ -76,6 +76,7 @@ Thumbs.db
 # --------------------------
 # Model checkpoints & datasets
 # --------------------------
+data_kaggle/
 checkpoints/
 output/
 outputs/

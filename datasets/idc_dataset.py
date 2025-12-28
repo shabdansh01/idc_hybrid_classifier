@@ -62,5 +62,5 @@ class IDCDataset(Dataset):
             image = augmented['image']
         
         label = torch.tensor(label, dtype=torch.float32)
-        
+        image = image.contiguous()
         return image, label

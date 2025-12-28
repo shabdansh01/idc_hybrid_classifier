@@ -36,7 +36,7 @@ def parse_args():
 def load_config(config_path):
     """Load YAML config."""
     if config_path and Path(config_path).exists():
-        with open(config_path) as f:
+        with open(config_path, 'r', encoding='utf-8') as f:
             return yaml.safe_load(f)
     else:
         # Use default config
@@ -211,6 +211,7 @@ def main():
     
     # Run mode
     if args.mode == 'train':
+        torch.cuda.empty_cache()
         train(config)
     elif args.mode == 'eval':
         print("Evaluation mode - implement evaluate() function")

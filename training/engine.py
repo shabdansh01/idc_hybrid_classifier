@@ -15,8 +15,8 @@ class TrainingEngine:
         self.criterion = criterion
         self.device = device
         self.config = config
-        self.scaler = torch.cuda.amp.GradScaler() if config['training']['mixed_precision'] else None
-    
+        # self.scaler = torch.cuda.amp.GradScaler() if config['training']['mixed_precision'] else None
+        self.scaler = torch.amp.GradScaler('cuda') if config['training']['mixed_precision'] else None
     def train_epoch(self, dataloader, epoch):
         """Train for one epoch."""
         self.model.train()
@@ -31,9 +31,23 @@ class TrainingEngine:
             
             # Forward pass
             if self.scaler is not None:
-                with torch.cuda.amp.autocast():
+                # with torch.cuda.amp.autocast():
+                with torch.amp.autocast('cuda'):
                     outputs = self.model(images)
+                    if torch.isnan(outputs).any() or torch.isinf(outputs).any():  # Check logits pre-loss
+                        print(f"[DEBUG] NaN/Inf in outputs! Max/Min: {outputs.max().item():.2f}/{outputs.min().item():.2f}")
+                        print(f"[DEBUG] Images mean/std: {images.mean().item():.4f}/{images.std().item():.4f}")
+                        torch.save(images, 'debug_batch0.pt')  # Load later: import torch; img = torch.load('debug_batch0.pt')[0].cpu().permute(1,2,0).numpy()
+                        return {'loss': float('nan'), 'debug_halt': True}
                     loss = self.criterion(outputs, targets)
+                    if torch.isnan(loss).any():
+                        print(f"[DEBUG] NaN detected! Logits max/min: {outputs.max().item():.2f}/{outputs.min().item():.2f}")  # Fixed: outputs, not logits
+                        print(f"[DEBUG] Targets sample: {targets[:5]}")  # [B,1] tensor, values 0./1.
+                        print(f"[DEBUG] Inputs mean/std: {images.mean().item():.4f}/{images.std().item():.4f}")  # Fixed: images, not inputs
+                        # Optional: Save for viz (add import matplotlib.pyplot as plt if needed)
+                        torch.save(images, 'debug_inputs.pt')
+                        # Early exit for debug (remove later)
+                        return {'loss': float('nan'), 'debug_halt': True}  # Halt epoch on first NaN
                 
                 # Backward pass
                 self.optimizer.zero_grad()
