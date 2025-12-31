@@ -72,7 +72,8 @@ training:
     patience: 15
     metric: "val_auc"
     mode: "max"
-  mixed_precision: true
+  # mixed_precision: true
+  mixed_precision: false
   # gradient_clip: 1.0
 
 paths:

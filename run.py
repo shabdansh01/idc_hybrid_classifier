@@ -19,6 +19,19 @@ from utils.stain_normalization import MacenkoStainNormalizer
 
 DEFAULT_CONFIG = "configs/default.yaml"
 
+# def parse_args():
+#     parser = argparse.ArgumentParser(description='IDC Hybrid Classifier')
+#     parser.add_argument('--config', type=str, default='configs/default.yaml',
+#                        help='Path to config file')
+#     parser.add_argument('--mode', type=str, default='train',
+#                        choices=['train', 'eval', 'predict'],
+#                        help='Mode: train, eval, or predict')
+#     parser.add_argument('--checkpoint', type=str, default=None,
+#                        help='Path to checkpoint for eval/predict')
+#     parser.add_argument('--data_dir', type=str, default=None,
+#                        help='Override data directory')
+#     return parser.parse_args()
+
 def parse_args():
     parser = argparse.ArgumentParser(description='IDC Hybrid Classifier')
     parser.add_argument('--config', type=str, default='configs/default.yaml',
@@ -30,9 +43,19 @@ def parse_args():
                        help='Path to checkpoint for eval/predict')
     parser.add_argument('--data_dir', type=str, default=None,
                        help='Override data directory')
+    parser.add_argument('--input_dir', type=str, default=None,  # NEW: For predict mode
+                       help='Input directory or single image path for prediction')
     return parser.parse_args()
 
 
+# def load_config(config_path):
+#     """Load YAML config."""
+#     if config_path and Path(config_path).exists():
+#         with open(config_path, 'r', encoding='utf-8') as f:
+#             return yaml.safe_load(f)
+#     else:
+#         # Use default config
+#         return yaml.safe_load(DEFAULT_CONFIG)
 def load_config(config_path):
     """Load YAML config."""
     if config_path and Path(config_path).exists():
@@ -40,7 +63,16 @@ def load_config(config_path):
             return yaml.safe_load(f)
     else:
         # Use default config
-        return yaml.safe_load(DEFAULT_CONFIG)
+        with open(DEFAULT_CONFIG, 'r', encoding='utf-8') as f:  # NEW: Fix load default
+            return yaml.safe_load(f)
+#  new
+def load_checkpoint(checkpoint_path, model, device):
+    if not Path(checkpoint_path).exists():
+        raise ValueError(f"Checkpoint not found: {checkpoint_path}")
+    checkpoint = torch.load(checkpoint_path, map_location=device)
+    model.load_state_dict(checkpoint['model_state_dict'])
+    print(f"Loaded checkpoint from epoch {checkpoint.get('epoch', 'N/A')} with AUC {checkpoint.get('best_auc', 'N/A'):.4f}")
+    return checkpoint
 
 
 def setup_directories(config):
@@ -48,6 +80,63 @@ def setup_directories(config):
     for path_key in ['output_dir', 'checkpoint_dir', 'log_dir']:
         Path(config['paths'][path_key]).mkdir(parents=True, exist_ok=True)
 
+def evaluate(config, checkpoint_path):
+    print("=" * 80)
+    print("IDC HYBRID CNN-VIT CLASSIFIER - EVALUATION")
+    print("=" * 80)
+    
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    print(f"Using device: {device}")
+    
+    # Load test dataset (assumes data_dir/test/0 and /1 exist)
+    val_transforms = IDCTransforms.get_val_transforms()
+    target_size = config['data']['target_size']
+    test_dataset = IDCDataset(
+        data_dir=Path(config['paths']['data_dir']) / 'test',
+        split='test',
+        transform=val_transforms,
+        stain_normalizer=None,  # Consistent with training
+        target_size=target_size
+    )
+    if len(test_dataset) == 0:
+        raise ValueError("No test data found. Create data_dir/test/0 and /1 folders.")
+    
+    test_loader = torch.utils.data.DataLoader(
+        test_dataset,
+        batch_size=config['training']['batch_size'],
+        shuffle=False,
+        num_workers=config['training']['num_workers'],
+        pin_memory=config['training']['pin_memory']
+    )
+    print(f"Test dataset size: {len(test_dataset)}")
+    
+    # Create and load model
+    model = HybridIDCClassifier(config).to(device)
+    load_checkpoint(checkpoint_path, model, device)
+    model.eval()
+    
+    # Loss for consistency
+    pos_weight = torch.tensor([config['training']['loss']['pos_weight']]).to(device)
+    criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
+    
+    # Engine (no optimizer needed)
+    engine = TrainingEngine(model, None, criterion, device, config)
+    
+    # Run evaluation
+    with torch.no_grad():
+        test_metrics = engine.validate(test_loader)
+    
+    # Print and save metrics
+    print(f"\nTest Metrics:")
+    for k, v in test_metrics.items():
+        print(f"{k.capitalize()}: {v:.4f}")
+        
+    
+    # Save to file
+    metrics_path = Path(config['paths']['output_dir']) / 'test_metrics.json'  # Or use yaml.dump
+    # For simplicity, print; extend to save if needed
+    print(f"\nMetrics saved to console. Best test AUC: {test_metrics['auc']:.4f}")
+    print("=" * 80)
 
 def train(config):
     """Main training function."""
@@ -214,6 +303,7 @@ def main():
         torch.cuda.empty_cache()
         train(config)
     elif args.mode == 'eval':
+        evaluate(config, args.checkpoint)
         print("Evaluation mode - implement evaluate() function")
     elif args.mode == 'predict':
         print("Prediction mode - implement predict() function")

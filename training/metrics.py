@@ -1,5 +1,5 @@
 from sklearn.metrics import roc_auc_score, f1_score, accuracy_score, confusion_matrix
-
+import numpy as np
 class MetricsCalculator:
     """Calculate classification metrics."""
     
