@@ -100,17 +100,17 @@ import os
 #     def get_output_dim(self):
 #         return self.out_channels
 
-# def create_convnext(cnn_config):
-#     """Factory function to create ConvNeXt backbone from config."""
-#     hf_repo = "FatimaK6/breast-cancer-convnext-tiny"  # Hardcoded for now; make configurable
-#     return ConvNeXtBackbone(
-#         model_name=cnn_config['backbone'],
-#         pretrained=cnn_config['pretrained'],
-#         freeze_stages=cnn_config['freeze_stages'],
-#         feature_dim=cnn_config['feature_dim'],
-#         hf_repo=hf_repo
-#     )
-# 
+def create_convnext(cnn_config):
+    """Factory function to create ConvNeXt backbone from config."""
+    hf_repo = "FatimaK6/breast-cancer-convnext-tiny"  # Hardcoded for now; make configurable
+    return ConvNeXtBackbone(
+        model_name=cnn_config['backbone'],
+        pretrained=cnn_config['pretrained'],
+        freeze_stages=cnn_config['freeze_stages'],
+        feature_dim=cnn_config['feature_dim'],
+        hf_repo=hf_repo
+    )
+
 
 import torch
 import torch.nn as nn

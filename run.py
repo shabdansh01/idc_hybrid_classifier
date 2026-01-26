@@ -240,7 +240,7 @@ def train(config):
         train_metrics = engine.train_epoch(train_loader, epoch)
         
         # Validate
-        val_metrics = engine.validate(val_loader)
+        val_metrics = engine.validate(val_loader,epoch)
         
         # Scheduler step
         scheduler.step()
@@ -278,10 +278,10 @@ def train(config):
         if patience_counter >= config['training']['early_stopping']['patience']:
             print(f"\nEarly stopping triggered after {epoch} epochs")
             break
-    
     print("\n[6/6] Training complete!")
     print(f"Best validation AUC: {best_auc:.4f}")
     print("=" * 80)
+    engine.writer.close()
 
 
 def main():

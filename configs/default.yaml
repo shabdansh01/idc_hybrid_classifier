@@ -4,14 +4,14 @@ model:
     backbone: "convnext_tiny"
     pretrained: true
     feature_dim: 768
-    freeze_stages: 2
+    freeze_stages: 0
     hf_repo: "FatimaK6/breast-cancer-convnext-tiny"
   vit:
     backbone: "swin_tiny_patch4_window7_224"
     pretrained: true
     img_size: 56
     feature_dim: 768
-    freeze_layers: 8
+    freeze_layers: 0
   fusion:
     project_dim: 512
     use_alignment: true
@@ -41,7 +41,7 @@ data:
 
 training:
   # batch_size: 64
-  batch_size: 64
+  batch_size: 128
   num_epochs: 100
   num_workers: 8
   pin_memory: true
@@ -77,7 +77,7 @@ training:
   # gradient_clip: 1.0
 
 paths:
-  data_dir: "C:/Users/Shabdansh/Downloads/idc_hybrid_classifier/data_kaggle"  # UPDATE THIS
+  data_dir: "/home/vidit/vidit/idc_hybrid_classifier/data_kaggle"  # UPDATE THIS
   output_dir: "outputs"
   checkpoint_dir: "outputs/checkpoints"
   log_dir: "outputs/logs"
